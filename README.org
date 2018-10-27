@@ -1,0 +1,16 @@
+#+TITLE: eproj
+#+AUTHOR: Sidharth Arya
+
+eproj is a new project management framework for developers. It aims to provide a very basic framework which is powerful and extensible.
+
+* Status :DEVELOPMENT:
+
+* TODO
+- [ ] Git Integration
+- [X] Independent Recipes
+- [ ] Find Project
+- [X] Create Projects
+- [ ] Documentation
+
+* Supported 
+- Rust
