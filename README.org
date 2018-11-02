@@ -2,15 +2,29 @@
 #+AUTHOR: Sidharth Arya
 
 eproj is a new project management framework for developers. It aims to provide a very basic framework which is powerful and extensible.
-
+* Dependencies
+- GNU grep 
+- leiningam for clojure
+- gradle for java
 * Status :DEVELOPMENT:
 
 * TODO
 - [ ] Git Integration
-- [X] Independent Recipes
+- [ ] find function
+- [ ] Independent Recipes
 - [ ] Find Project
-- [X] Create Projects
+- [ ] Create Projects
 - [ ] Documentation
 
-* Supported 
-- Rust
+* Support 
+- [X] C
+- [X] C++
+- [ ] Ruby
+- [ ] Java
+- [ ] Python
+- [ ] Clojure
+- [ ] Rust
+- [ ] Php
+- [ ] Haskell
+- [ ] Perl
+- [ ] Javascript

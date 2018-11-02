@@ -1,12 +1,50 @@
-;; eproj.el -- Make Projects simpler
+;; eproj.el --- Make Projects simpler
 ;; This has been strictly created for linux based systems. Although systems with same lineage as linux, like BSD, Unix, Mac OSX may work as expected.
+;; It is very tightly bound to shell commands.
 (require 'essentials)
-(load eproj/config-location)
-(load eproj/project-location)
+
+(if (boundp 'eproj/config-location)
+    (load eproj/config-location)
+  (load "./eproj-default-config.el"))
+(if (boundp 'eproj/project-location)
+    (load eproj/project-location)
+  (progn
+    (setq eproj/project-location "~/.emacs.d/eproj-projects")
+    (if (file-exists-p eproj/project-location)
+	(load eproj/project-location)
+      (progn
+	(load "./eproj-init-projects.el")
+	(eproj/make-project-file)
+	)
+      )
+    )
+  )
 
 (defvar eproj/project-type nil)
 (defvar eproj/project-root nil)
 (defvar eproj/project-name nil)
+(defvar eproj/file-name nil)
+(defvar eproj/file-extension nil)
+(defun eproj/set-file()
+  "Set File"
+  (interactive)
+  (setq eproj/file-name (buffer-file-name))
+  (setq eproj/file-extension (file-name-extension eproj/file-name))
+  (make-local-variable 'eproj/file-name)
+  (make-local-variable 'eproj/file-extension)
+  )
+(defun eproj/assume-file-type(EXTENSION)
+  "Set File"
+  (setq eproj/file-extension EXTENSION)
+  (make-local-variable 'eproj/file-extension)
+  )
+(defun eproj/ask-file-type()
+  "Set File"
+  (interactive)
+  (eproj/assume-file-type (ido-completing-read "Assume as file type:" eproj/import-dirs))
+  )
+
+
 (defun eproj/make-config-file()
   "Create a make file"
   (interactive)
@@ -56,8 +94,9 @@
       )
   )
 
-
-
+(defun eproj/initial-file()
+  "Create the initial Project "
+  )
 (defun eproj/create-project()
   "Create a new Project"
   (interactive)
@@ -72,7 +111,7 @@
   (make-local-variable 'eproj/project-root)
   (make-local-variable 'eproj/project-name)
   (setq eproj/projects (mapcar 'eproj/append-new-project-to-roots eproj/projects))
-  (eproj/make-project-file)
+  (eproj/make-projects-file)
   )
 
 (add-to-list 'after-load-functions 'eproj/set-project)
@@ -86,7 +125,9 @@
   (setq val nil)
   (while (and
 	  (equal found nil)
-	  (not (equal searchloc "")))
+	  (not (equal searchloc ""))
+	  (not (equal searchloc "~")))
+
     (setq val (eproj/check-from-list searchloc checklist))
     (if (not (equal val nil))
     	(progn 
@@ -111,16 +152,74 @@
   )
 
 (defun eproj/check-from-list(string list-of-list)
-  "Check position"
-  (position string list-of-list :test (lambda (a b) (position a b :test (lambda (c d) (equal c d)))))
+  "Check cl-position"
+  (cl-position string list-of-list :test (lambda (a b) (cl-position a b :test (lambda (c d) (equal c d)))))
   )
 
-(defun eproj/compile-project()
+(defun eproj/build-project()
   "Create a new Project"
-  (execute-extended-command "abc")
-  (ido-completing-read
-          "M-x "
-          (all-completions "" obarray 'commandp))
+  (interactive)
+  (async-shell-command (insert-into-string (find-from-dict eproj/build-recipes eproj/project-type) "%pr" eproj/project-root))
   )
+(defun eproj/execute-project()
+  "Create a new Project"
+  (interactive)
+  (async-shell-command (insert-into-string (insert-into-string (find-from-dict eproj/execute-recipes eproj/project-type) "%pr" eproj/project-root) "%pn" eproj/project-name))
+  )
+(defun eproj/refractor-replace()
+  "Refractor Replace"
+  (interactive)
+  (let ((find (read-string "Refractor Find:")) (replace (read-string "Replace With:")) (df-flag (yes-or-no-p "Should Directories and Files be included in refractoring:")))
+    (async-shell-command (format "sed -i 's/%s/%s/g' $(grep %s -G %pr -l) " find replace find))
+    ))
+(defun eproj/set-headers()
+  "Goto Header"
+  (interactive)
+  (let* (
+	 (file-name eproj/file-name)
+	 (file-extension eproj/file-extension)
+	 (header-format-replaces (find-from-dict eproj/import-replaces file-extension))
+	(include-locations (split-string (find-from-dict eproj/import-dirs file-extension) ":"))
+	(headers (split-string (replace-regexp-in-string " " "" (string-trim (shell-command-to-string (format "grep -G '%s' %s" (find-from-dict eproj/import-regexp file-extension)  file-name)))) "\n"))
+	)
+    (setq eproj/headers (mapcar (lambda (a)
+    				  (mapcar (lambda (fr) (setq a (insert-into-string (insert-into-string a (car fr) (car (cdr fr))) "%id" (format "%s/"(car include-locations))))) header-format-replaces) (format "%s" a)) headers))
+    (make-local-variable 'eproj/headers)
+    ))
+(defun eproj/goto-header()
+  "Goto Header"
+  (interactive)
+  (let* (
+	 (file-name eproj/file-name)
+	 (file-extension eproj/file-extension)
+	 (header-format-replaces (find-from-dict eproj/import-replaces file-extension))
+	 (include-locations (split-string (find-from-dict eproj/import-dirs file-extension) ":"))
+      	 )
+    (setq header (split-string (replace-regexp-in-string " " "" (string-trim (thing-at-point 'line t))) "\n"))
+    (setq header (mapcar (lambda (a)
+    				  (mapcar (lambda (fr) (setq a (insert-into-string (insert-into-string a (car fr) (car (cdr fr))) "%id" (format "%s/"(car include-locations))))) header-format-replaces) (format "%s" a)) header))
+;;    (setq header (mapcar (lambda (fr) (setq header (insert-into-string (insert-into-string header (car fr) (car (cdr fr))) "%id" (format "%s/"(car include-locations))))) header-format-replaces))
+ (find-file (car header))
+ (makunbound 'header)
+   ))
 
-(provide 'eproj)
+(defun eproj/goto-function()
+  "Goto a function in header"
+  (interactive)
+  (let* (
+	 (file-extension eproj/file-extension)
+	 (regex (insert-into-string (find-from-dict eproj/function-regexp file-extension) "%fn" (thing-at-point 'word t))))
+    (setq temp (split-string (shell-command-to-string (format "grep -Pn '%s' %s %s " regex  (string-join eproj/headers " ") (buffer-file-name))) ":"))
+    (if (file-exists-p (car temp))
+	(progn
+	  (find-file (car temp))
+	  (assume-file-type file-extension)
+	  (goto-line (string-to-number (car (cdr temp))))))
+    (message "Function Not Found"))
+     )
+
+(require 'ls-lisp)
+    
+  (provide 'eproj)
+  
+
