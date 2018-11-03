@@ -19,27 +19,43 @@
       )
     )
   )
-
 (defvar eproj/project-type nil)
 (defvar eproj/project-root nil)
 (defvar eproj/project-name nil)
 (defvar eproj/file-name nil)
 (defvar eproj/file-extension nil)
 (defun eproj/set-file()
-  "Set File"
+  "Set File 
+This function will set the necessary variables for certain other headers to work. 
+It sets the eproj/file-extension variable from the current file name. 
+It may not be of any use to call this function. since it has already be 
+added to the list of functions which get called after the files are loaded.
+
+"
   (interactive)
   (setq eproj/file-name (buffer-file-name))
-  (setq eproj/file-extension (file-name-extension eproj/file-name))
+  (if (not (equal eproj/file-name nil))
+      (setq eproj/file-extension (file-name-extension eproj/file-name))
+    )
   (make-local-variable 'eproj/file-name)
   (make-local-variable 'eproj/file-extension)
   )
+  
 (defun eproj/assume-file-type(EXTENSION)
-  "Set File"
+  "Assume file of Type
+This function makes the eproj library see the current file appear as if it had an
+extension which is provided as an argument.
+"
   (setq eproj/file-extension EXTENSION)
   (make-local-variable 'eproj/file-extension)
   )
+
 (defun eproj/ask-file-type()
-  "Set File"
+  "Ask File Type
+This function is an extension to the function eproj/assume-file-type for the users.
+The users may specify the file extension interactively. so that the file is processed 
+as having another extension by the eproj library.
+"
   (interactive)
   (eproj/assume-file-type (ido-completing-read "Assume as file type:" eproj/import-dirs))
   )
@@ -103,7 +119,7 @@
   (setq eproj/project-type (ido-completing-read "Project Type:"  eproj/new-proj-recipes))
   (setq eproj/project-name (read-string "Enter Project's Name: "))
   
-  (shell-command (insert-into-string (find-from-dict eproj/new-proj-recipes eproj/project-type) "%pn" eproj/project-name))
+  (async-shell-command (insert-into-string (find-from-dict eproj/new-proj-recipes eproj/project-type) "%pn" eproj/project-name))
   
   (find-file (insert-into-string  (find-from-dict eproj/new-proj-recipes eproj/project-type 2 ) "%pn" eproj/project-name))
   (setq eproj/project-root (string-join (butlast (split-string (nth 1 (split-string (pwd))) "/")) "/"))
@@ -119,6 +135,7 @@
 (defun eproj/set-project(&optional FILE)
   "Sets the project type"
   (interactive)
+  (eproj/set-file)
   (setq checklist (mapcar (lambda(a) (split-string (nth 1 a) ":")) eproj/projects))
   (setq searchloc (nth 1 (split-string (pwd))))
   (setq found nil)
@@ -159,19 +176,24 @@
 (defun eproj/build-project()
   "Create a new Project"
   (interactive)
-  (async-shell-command (insert-into-string (find-from-dict eproj/build-recipes eproj/project-type) "%pr" eproj/project-root))
+      (async-shell-command (insert-into-string (find-from-dict eproj/build-recipes eproj/project-type) "%pr" eproj/project-root))
   )
-(defun eproj/execute-project()
+(defun eproj/execute-project(&optional arguments time-boolean)
   "Create a new Project"
   (interactive)
-  (async-shell-command (insert-into-string (insert-into-string (find-from-dict eproj/execute-recipes eproj/project-type) "%pr" eproj/project-root) "%pn" eproj/project-name))
+  (let ((shellcommand(format "%s %s" (insert-into-string (insert-into-string (find-from-dict eproj/execute-recipes eproj/project-type) "%pr" eproj/project-root) "%pn" eproj/project-name) (if (equal arguments nil) "" arguments))))
+    (if time-boolean
+	(progn
+	  (setq shellcommand (split-string shellcommand ";"))
+	  (setq shellcommand (string-join (append (butlast shellcommand) (list (concat "time " (car (last shellcommand))))) ";"))
+	  (print shellcommand)
+   )) (async-shell-command shellcommand)
+    )
   )
 (defun eproj/refractor-replace()
   "Refractor Replace"
   (interactive)
-  (let ((find (read-string "Refractor Find:")) (replace (read-string "Replace With:")) (df-flag (yes-or-no-p "Should Directories and Files be included in refractoring:")))
-    (async-shell-command (format "sed -i 's/%s/%s/g' $(grep %s -G %pr -l) " find replace find))
-    ))
+    )
 (defun eproj/set-headers()
   "Goto Header"
   (interactive)
@@ -179,11 +201,13 @@
 	 (file-name eproj/file-name)
 	 (file-extension eproj/file-extension)
 	 (header-format-replaces (find-from-dict eproj/import-replaces file-extension))
-	(include-locations (split-string (find-from-dict eproj/import-dirs file-extension) ":"))
-	(headers (split-string (replace-regexp-in-string " " "" (string-trim (shell-command-to-string (format "grep -G '%s' %s" (find-from-dict eproj/import-regexp file-extension)  file-name)))) "\n"))
+	(include-locations (split-string (format "%s:."(find-from-dict eproj/import-dirs file-extension)) ":"))
+	(headers (split-string (string-trim (shell-command-to-string (format "grep -Po '%s' %s" (find-from-dict eproj/import-regexp file-extension)  file-name))) "\n"))
 	)
-    (setq eproj/headers (mapcar (lambda (a)
-    				  (mapcar (lambda (fr) (setq a (insert-into-string (insert-into-string a (car fr) (car (cdr fr))) "%id" (format "%s/"(car include-locations))))) header-format-replaces) (format "%s" a)) headers))
+    (setq eproj/headers '())
+    (mapcar (lambda (incl) (mapcar (lambda(head) (if (file-exists-p (format "%s/%s" incl head))
+						     (add-to-list 'eproj/headers (format "%s/%s" incl head)))
+						     ) headers)) include-locations)
     (make-local-variable 'eproj/headers)
     ))
 (defun eproj/goto-header()
@@ -192,15 +216,11 @@
   (let* (
 	 (file-name eproj/file-name)
 	 (file-extension eproj/file-extension)
-	 (header-format-replaces (find-from-dict eproj/import-replaces file-extension))
-	 (include-locations (split-string (find-from-dict eproj/import-dirs file-extension) ":"))
-      	 )
-    (setq header (split-string (replace-regexp-in-string " " "" (string-trim (thing-at-point 'line t))) "\n"))
-    (setq header (mapcar (lambda (a)
-    				  (mapcar (lambda (fr) (setq a (insert-into-string (insert-into-string a (car fr) (car (cdr fr))) "%id" (format "%s/"(car include-locations))))) header-format-replaces) (format "%s" a)) header))
-;;    (setq header (mapcar (lambda (fr) (setq header (insert-into-string (insert-into-string header (car fr) (car (cdr fr))) "%id" (format "%s/"(car include-locations))))) header-format-replaces))
- (find-file (car header))
- (makunbound 'header)
+	 (include-locations (split-string (format "%s:." (find-from-dict eproj/import-dirs file-extension)) ":"))
+      	 (header (thing-at-point 'filename t))
+	 )
+    (mapcar (lambda (a) (if (file-exists-p (string-join (list a header) "/")) (find-file (string-join (list a header) "/")))) include-locations)
+
    ))
 
 (defun eproj/goto-function()
@@ -208,12 +228,12 @@
   (interactive)
   (let* (
 	 (file-extension eproj/file-extension)
-	 (regex (insert-into-string (find-from-dict eproj/function-regexp file-extension) "%fn" (thing-at-point 'word t))))
+	 (regex (insert-into-string (find-from-dict eproj/function-regexp file-extension) "%fn" (thing-at-point 'symbol t))))
     (setq temp (split-string (shell-command-to-string (format "grep -Pn '%s' %s %s " regex  (string-join eproj/headers " ") (buffer-file-name))) ":"))
     (if (file-exists-p (car temp))
 	(progn
 	  (find-file (car temp))
-	  (assume-file-type file-extension)
+	  (eproj/assume-file-type file-extension)
 	  (goto-line (string-to-number (car (cdr temp))))))
     (message "Function Not Found"))
      )

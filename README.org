@@ -1,11 +1,15 @@
 #+TITLE: eproj
 #+AUTHOR: Sidharth Arya
-
+#+OPTIONS: toc:nil
+* Synopsis
 eproj is a new project management framework for developers. It aims to provide a very basic framework which is powerful and extensible.
+[[./video.mkv]]
 * Dependencies
 - GNU grep 
 - leiningam for clojure
 - gradle for java
+- stack for haskell
+
 * Status :DEVELOPMENT:
 
 * TODO
