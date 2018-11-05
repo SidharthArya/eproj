@@ -63,7 +63,13 @@
 			   ))
 
 (setq eproj/function-regexp '(
-			      ("c"  "^.*\\w+ %fn ?\\(.*\\)")
+			      ("c" "\\w+ %fn ?\\(.*\\)")
 			      ("h"  "^.*\\w+ %fn ?\\(.*\\)")
 			      ("cpp"  "^.*\\w+ %fn ?\\(.*\\)")
 			      ))
+(setq eproj/function-completion-regexp '(
+			      ("c" "(?<=\\w )\\w*(?= ?\\(.*\\))")
+			      ("h"  "^.*\\w+ %fn ?\\(.*\\)")
+			      ("cpp"  "^.*\\w+ %fn ?\\(.*\\)")
+			      ))
+

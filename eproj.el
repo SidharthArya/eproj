@@ -22,8 +22,6 @@
 (defvar eproj/project-type nil)
 (defvar eproj/project-root nil)
 (defvar eproj/project-name nil)
-(defvar eproj/file-name nil)
-(defvar eproj/file-extension nil)
 (defun eproj/set-file()
   "Set File 
 This function will set the necessary variables for certain other headers to work. 
@@ -234,12 +232,70 @@ as having another extension by the eproj library.
 	(progn
 	  (find-file (car temp))
 	  (eproj/assume-file-type file-extension)
-	  (goto-line (string-to-number (car (cdr temp))))))
-    (message "Function Not Found"))
+	  (goto-line (string-to-number (car (cdr temp)))))
+    (message "Function Not Found")))
      )
-
+(defun eproj/mode-function()
+  "Something"
+  (interactive)
+  (let* (
+	 (file-extension eproj/file-extension)
+	 (regex (insert-into-string (find-from-dict eproj/function-regexp file-extension) "%fn" (thing-at-point 'symbol t))))
+    (setq temp (split-string (shell-command-to-string (format "grep -Po '%s' %s %s " regex  (string-join eproj/headers " ") (buffer-file-name))) ":"))
+    (print (string-trim (car (last temp)))))
+  )
 (require 'ls-lisp)
-    
+
+(defun eproj/popup-function-suggestions()
+  "Popup Header Suggestions"
+  (interactive)
+  (let* (
+	 (headers eproj/headers)
+	 (regex (find-from-dict eproj/function-completion-regexp eproj/file-extension))
+	 (shellcommand (format "grep -Po '%s' %s | sed 's/:/ /g' | awk '{print $2}'" regex (string-join headers " "))))
+    (print shellcommand)
+    (insert (concat (ido-completing-read "choices: " (split-string (string-trim (shell-command-to-string shellcommand)) "\n")) " ()"))
+	 
+    )
+  )
+  
+
+
+(defun eproj/popup-function-suggestions-point()
+  "Popup Header Suggestions"
+  (interactive)
+  (let* ((headers eproj/headers)
+	 (outputs "")
+	 (headers (shell-command-to-string "")))
+    (mapcar (shell-command-to-string (format "")) headers)
+    (print outputs)
+    (insert (ido-completing-read "Something " (split-string outputs "\n")))
+    ))
+
+
+;; (defun eproj/popups(list)
+;; "Something "
+;; (popup-menu* list
+;;                        :point (point)
+;;                        :around t
+;;                        :height 50
+;;                        :max-width 50
+;;                        :margin-left 2
+;;                        :scroll-bar t
+;;                        :symbol nil
+;;                        :parent nil
+;;                        :parent-offset nil
+;;                        :cursor nil
+;;                        :fallback nil
+;;                        :help-delay nil
+;;                        :nowait nil
+;;                        :isearch t
+;;                        :isearch-cursor-color nil
+;;                        :initial-index nil)
+
+;; )
+
+
   (provide 'eproj)
   
 
